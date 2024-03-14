@@ -4,12 +4,13 @@
 #include <thread>
 
 int main(int, char*[]) {
-    ImVec2 pointOrigin(321.0f, 448.0f);
+    ImVec2 pointOrigin(-100.0f, -100.0f);
     ImVec2 scrolling(0.0f, 0.0f);
 
     bool enableGrid               = true;
     bool enableDebug              = false;
     bool enableAccelerationWindow = false;
+    bool followPoint              = false;
 
     float zoomScale = 1.0f;
 
@@ -50,10 +51,7 @@ int main(int, char*[]) {
         ImGui::Checkbox("Enable grid", &enableGrid);
         ImGui::Checkbox("Enable debug", &enableDebug);
         ImGui::Checkbox("Enable Acceleration Window", &enableAccelerationWindow);
-
-        if (ImGui::Button("Reset zoom scale")) {
-            zoomScale = 1.0f;
-        }
+        ImGui::Checkbox("Follow point", &followPoint);
 
         if (enableAccelerationWindow) {
             ImGui::Begin("Acceleration");
@@ -104,17 +102,22 @@ int main(int, char*[]) {
         }
 
         const float mouse_threshold_for_pan = 0.0f;
-        if (is_active && ImGui::IsMouseDragging(ImGuiMouseButton_Left, mouse_threshold_for_pan)) {
+        if (is_active && ImGui::IsMouseDragging(ImGuiMouseButton_Left, mouse_threshold_for_pan) && !followPoint) {
             scrolling.x += io.MouseDelta.x;
             scrolling.y += io.MouseDelta.y;
+        }
+
+        if (followPoint) {
+            scrolling.x = (canvas_sz.x / 2) - pointOrigin.x;
+            scrolling.y = (canvas_sz.y / 2) - pointOrigin.y;
         }
 
         draw_list->PushClipRect(canvas_p0, canvas_p1, true);
 
         if (enableGrid) {
-            // vertical lines
             float zoomedGridStep = GRID_STEP * zoomScale;
 
+            // vertical lines
             for (float x = fmodf(scrolling.x, zoomedGridStep); x < canvas_sz.x; x += zoomedGridStep) {
                 float x0 = canvas_p0.x + x;
                 float y0 = canvas_p0.y;
@@ -145,29 +148,32 @@ int main(int, char*[]) {
 
         if (enableDebug) {
             ImGui::Begin("Debug");
-            ImGui::Text("Origin X: %f", origin.x);
+            ImGui::Text("Origin X: %.0f", origin.x);
             ImGui::SameLine();
-            ImGui::Text("Origin Y: %f", origin.y);
-            ImGui::Text("Canvas P0 X: %f", canvas_p0.x);
+            ImGui::Text("Origin Y: %.0f", origin.y);
+            ImGui::Text("Canvas P0 X: %.0f", canvas_p0.x);
             ImGui::SameLine();
-            ImGui::Text("Canvas P0 Y: %f", canvas_p0.y);
-            ImGui::Text("Canvas P1 X: %f", canvas_p1.x);
+            ImGui::Text("Canvas P0 Y: %.0f", canvas_p0.y);
+            ImGui::Text("Canvas P1 X: %.0f", canvas_p1.x);
             ImGui::SameLine();
-            ImGui::Text("Canvas P1 Y: %f", canvas_p1.y);
-            ImGui::Text("Canvas SZ X: %f", canvas_sz.x);
+            ImGui::Text("Canvas P1 Y: %.0f", canvas_p1.y);
+            ImGui::Text("Canvas SZ X: %.0f", canvas_sz.x);
             ImGui::SameLine();
-            ImGui::Text("Canvas SZ Y: %f", canvas_sz.y);
-            ImGui::Text("Scrolling X: %f", scrolling.x);
+            ImGui::Text("Canvas SZ Y: %.0f", canvas_sz.y);
+            ImGui::Text("Scrolling X: %.0f", scrolling.x);
             ImGui::SameLine();
-            ImGui::Text("Scrolling Y: %f", scrolling.y);
-            ImGui::Text("Point X: %f", pointOrigin.x);
+            ImGui::Text("Scrolling Y: %.0f", scrolling.y);
+            ImGui::Text("Point X: %.0f", pointOrigin.x);
             ImGui::SameLine();
-            ImGui::Text("Point Y: %f", pointOrigin.y);
-            ImGui::Text("Zoom Scale %f", zoomScale);
+            ImGui::Text("Point Y: %.0f", pointOrigin.y);
+            ImGui::Text("Zoom Scale %.1f", zoomScale);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-            ImGui::Text("Mouse Pos X: %f", mousePos.x);
+            ImGui::Text("Mouse Pos X: %.0f", mousePos.x);
             ImGui::SameLine();
-            ImGui::Text("Mouse Pos Y: %f", mousePos.y);
+            ImGui::Text("Mouse Pos Y: %.0f", mousePos.y);
+            ImGui::Text("Actual Point Pos X: %.0f", pointOrigin.x + origin.x);
+            ImGui::SameLine();
+            ImGui::Text("Actual Point Pos Y: %.0f", pointOrigin.y + origin.y);
             ImGui::End();
         }
 
@@ -178,17 +184,13 @@ int main(int, char*[]) {
         draw_list->PopClipRect();
     };
 
-    // TODO: Zoom is inverted
-    // When you zoom in, it should move faster and zoom out it should move slower (currently the opposite)
-    // TODO: Find a way to have a button to center on the point
-    // There must be a way to find the correct scrolling offset based on the point coords and some other thing
-
     const std::string            windowTitle             = "Test Scrolling Pane";
     const HelloImGui::ScreenSize screenSize              = { 1280, 720 };
     const bool                   autoSizeWindow          = false;
     const bool                   restorePreviousGeometry = true;
+    const float                  fpsIdle                 = 0.0f;
 
-    HelloImGui::Run(guiFunction, windowTitle, autoSizeWindow, restorePreviousGeometry, screenSize);
+    HelloImGui::Run(guiFunction, windowTitle, autoSizeWindow, restorePreviousGeometry, screenSize, fpsIdle);
 
     stopThread(t);
 
