@@ -6,12 +6,17 @@
 
 int main(int, char*[]) {
     // TODO: add speed vector north + east
-    // TODO: add tracks + animate tracks
+    // TODO: add planes + animate planes
     // TODO: convert from x/y to lat/long
     // TODO: rework drawing + scrolling + origin (?)
     // TODO: have own timers to avoid jumps
     // TODO: ship's trail when following ship doesn't work
     // TODO: do not store trail when scrolling
+    // TODO: disabling trail when following ship make ship disappears
+    // TODO: adding more than one track seg fault
+    // TODO: seg fault on stop
+    // TODO: add offset to each plane so they don't overlap
+    // TODO: add more animation for planes
 
     ImVec2 shipCoordinates(0.0f, 0.0f);
     ImVec2 scrollingOffset(0.0f, 0.0f);
@@ -31,6 +36,8 @@ int main(int, char*[]) {
     int               shipsTrailSize         = 100;
     std::list<ImVec2> trail(shipsTrailSize);
 
+    std::vector<ImVec2> planes;
+
     bool   displayGrid     = true;
     bool   displayMarkings = true;
     int    gridStep        = 64;
@@ -46,17 +53,22 @@ int main(int, char*[]) {
 
     float zoomScale = 1.0f;
 
-    std::atomic_bool stopThreadExecution(false);
-    std::atomic_bool isThreadRunning(false);
+    std::atomic_bool stopShipAnimationThreadExecution(false);
+    std::atomic_bool isShipAnimationThreadRunning(false);
     bool             animateShip = false;
-    std::thread      t;
+    std::thread      shipAnimationThread;
+
+    std::atomic_bool stopPlanesAnimationThreadExecution(false);
+    std::atomic_bool isPlanesAnimationThreadRunning(false);
+    bool animatePlanes = false;
+    std::thread      planesAnimationThread;
 
     auto guiFunction = [&]() {
-        if (!isThreadRunning) {
-            t = std::thread([&]() {
-                isThreadRunning = true;
+        if (!isShipAnimationThreadRunning) {
+            shipAnimationThread = std::thread([&]() {
+                isShipAnimationThreadRunning = true;
 
-                while (!stopThreadExecution) {
+                while (!stopShipAnimationThreadExecution) {
                     if (animateShip) {
                         switch (animationSelectedIndex) {
                             case 0: // Linear
@@ -78,6 +90,33 @@ int main(int, char*[]) {
                     }
 
                     std::this_thread::sleep_for(std::chrono::milliseconds(shipAccelerationPeriod));
+                }
+            });
+        }
+
+        if (!isPlanesAnimationThreadRunning) {
+            planesAnimationThread = std::thread([&]() {
+                isPlanesAnimationThreadRunning = true;
+
+                while (!stopPlanesAnimationThreadExecution) {
+                    if (animatePlanes) {
+                        float centerOfOrbitX = shipCoordinates.x;
+                        float centerOfOrbitY = shipCoordinates.y;
+                        float radius = 200.0f;
+                        float ownRadius = 100.0f;
+                        float angularSpeed = 2.0f;
+                        float ownAngularSpeed = 8.0f;
+
+                        for (auto& plane : planes) {
+                            float angle = ImGui::GetTime() * angularSpeed;
+                            float orbitX = centerOfOrbitX + radius * std::cos(angle);
+                            float orbitY = centerOfOrbitY + radius * std::sin(angle);
+
+                            float ownAngle = ImGui::GetTime() * ownAngularSpeed;
+                            plane.x = orbitX + ownRadius * std::cos(ownAngle);
+                            plane.y = orbitY + ownRadius * std::sin(ownAngle);
+                        }
+                    }
                 }
             });
         }
@@ -143,6 +182,21 @@ int main(int, char*[]) {
                     }
                 }
             }
+        }
+        if (ImGui::CollapsingHeader("Planes", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::Button("Add")) {
+                if (planes.empty()) {
+                    planes.emplace_back(0.0f, 0.0f);
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Remove")) {
+                if (!planes.empty()) {
+                    planes.pop_back();
+                }
+            }
+            ImGui::Checkbox("Animate planes", &animatePlanes);
+            ImGui::Text("Number of planes: %zu", planes.size());
         }
         if (ImGui::CollapsingHeader("Grid", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("Display grid", &displayGrid);
@@ -300,6 +354,11 @@ int main(int, char*[]) {
             draw_list->AddCircleFilled(shipToDraw, 10 * zoomScale, ImColor(shipColor));
         }
 
+        for (const auto& plane : planes) {
+            ImVec2 planeToDraw(plane.x + origin.x, plane.y + origin.y);
+            draw_list->AddCircleFilled(planeToDraw, 5 * zoomScale, ImColor(shipColor));
+        }
+
         draw_list->PopClipRect();
     };
 
@@ -311,8 +370,11 @@ int main(int, char*[]) {
 
     HelloImGui::Run(guiFunction, windowTitle, autoSizeWindow, restorePreviousGeometry, screenSize, fpsIdle);
 
-    stopThreadExecution = true;
-    t.join();
+    stopShipAnimationThreadExecution = true;
+    stopPlanesAnimationThreadExecution = true;
+
+    shipAnimationThread.join();
+    planesAnimationThread.join();
 
     return 0;
 }
