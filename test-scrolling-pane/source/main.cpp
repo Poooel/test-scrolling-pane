@@ -117,6 +117,8 @@ int main(int, char*[]) {
                             plane.y = orbitY + ownRadius * std::sin(ownAngle);
                         }
                     }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(shipAccelerationPeriod));
                 }
             });
         }
