@@ -48,3 +48,6 @@ cmake-build-*
 
 # IDE
 .idea
+
+# Emscripten
+build_emscripten

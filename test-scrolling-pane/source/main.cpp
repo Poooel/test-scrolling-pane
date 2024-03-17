@@ -1,22 +1,41 @@
 #include "hello_imgui/hello_imgui.h"
 
 #include <cmath>
+#include <list>
 #include <thread>
 
 int main(int, char*[]) {
+    // TODO: add speed vector north + east
+    // TODO: add tracks + animate tracks
+    // TODO: convert from x/y to lat/long
+    // TODO: rework drawing + scrolling + origin (?)
+    // TODO: have own timers to avoid jumps
+    // TODO: ship's trail when following ship doesn't work
+    // TODO: do not store trail when scrolling
+
     ImVec2 shipCoordinates(0.0f, 0.0f);
     ImVec2 scrollingOffset(0.0f, 0.0f);
 
-    ImVec4 shipColor(1.0f, 1.0f, 1.0f, 1.0f);
-    float  shipAccelerationX      = 0.0f;
-    float  shipAccelerationY      = 0.0f;
-    int    shipAccelerationPeriod = 100;
-    bool   followShip             = false;
+    ImVec4            shipColor(1.0f, 1.0f, 1.0f, 1.0f);
+    float             shipLinearSpeedX       = 0.0f;
+    float             shipLinearSpeedY       = 0.0f;
+    int               shipAccelerationPeriod = 10;
+    bool              followShip             = true;
+    const char*       animations[]           = { "Linear", "Sin", "Circle" };
+    int               animationSelectedIndex = 0;
+    float             shipSinAmplitude       = 100.0f;
+    float             shipSinFrequency       = 0.1f;
+    float             shipCircleRadius       = 100.f;
+    float             shipAngularSpeed       = 1.0f;
+    bool              shipsTrail             = false;
+    int               shipsTrailSize         = 100;
+    std::list<ImVec2> trail(shipsTrailSize);
 
     bool   displayGrid     = true;
     bool   displayMarkings = true;
     int    gridStep        = 64;
     ImVec4 gridColor(0.5f, 0.5f, 0.5f, 1.0f);
+    ImVec4 markingsColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     bool   displayBorder = true;
     ImVec4 borderColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -28,50 +47,117 @@ int main(int, char*[]) {
     float zoomScale = 1.0f;
 
     std::atomic_bool stopThreadExecution(false);
-
-    std::thread t([&]() {
-        while (!stopThreadExecution) {
-            shipCoordinates.x += shipAccelerationX;
-            shipCoordinates.y += shipAccelerationY;
-            std::this_thread::sleep_for(std::chrono::milliseconds(shipAccelerationPeriod));
-        }
-    });
+    std::atomic_bool isThreadRunning(false);
+    bool             animateShip = false;
+    std::thread      t;
 
     auto guiFunction = [&]() {
-        ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-        if (ImGui::CollapsingHeader("Ship settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (!isThreadRunning) {
+            t = std::thread([&]() {
+                isThreadRunning = true;
+
+                while (!stopThreadExecution) {
+                    if (animateShip) {
+                        switch (animationSelectedIndex) {
+                            case 0: // Linear
+                                shipCoordinates.x += shipLinearSpeedX;
+                                shipCoordinates.y += shipLinearSpeedY;
+                                break;
+                            case 1: // Sin
+                                shipCoordinates.x += shipLinearSpeedX;
+                                shipCoordinates.y =
+                                    shipSinAmplitude * std::sin(2 * M_PI * shipSinFrequency * ImGui::GetTime());
+                                break;
+                            case 2: // Circle
+                                double time = ImGui::GetTime();
+                                shipCoordinates.x =
+                                    shipCircleRadius * std::cos(shipAngularSpeed * time) + (shipLinearSpeedX * time);
+                                shipCoordinates.y =
+                                    shipCircleRadius * std::sin(shipAngularSpeed * time) + (shipLinearSpeedY * time);
+                        }
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(shipAccelerationPeriod));
+                }
+            });
+        }
+
+        ImGui::Begin("Settings");
+        if (ImGui::CollapsingHeader("Ship", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::ColorEdit3("Ship color", (float*) &shipColor);
-            if (ImGui::Button("Stop ship")) {
-                shipAccelerationX = 0.0f;
-                shipAccelerationY = 0.0f;
-            }
-            ImGui::SameLine();
             if (ImGui::Button("Reset ship")) {
                 shipCoordinates.x = 0.0f;
                 shipCoordinates.y = 0.0f;
             }
-            // TODO: Add patterns (circle, sin, ...)
-            ImGui::InputFloat("Ship acceleration X", &shipAccelerationX);
-            ImGui::InputFloat("Ship acceleration Y", &shipAccelerationY);
+            ImGui::Checkbox("Animate ship", &animateShip);
+            if (ImGui::BeginListBox("Animations")) {
+                for (int i = 0; i < IM_ARRAYSIZE(animations); i++) {
+                    const bool isSelected = animationSelectedIndex == i;
+
+                    if (ImGui::Selectable(animations[i], isSelected)) {
+                        animationSelectedIndex = i;
+                        animateShip            = false;
+                    }
+
+                    if (isSelected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndListBox();
+            }
+            ImGui::SeparatorText("Animation");
+            switch (animationSelectedIndex) {
+                case 0: // Linear
+                    ImGui::InputFloat("Ship linear speed X", &shipLinearSpeedX);
+                    ImGui::InputFloat("Ship linear speed Y", &shipLinearSpeedY);
+                    break;
+                case 1: // Sin
+                    ImGui::InputFloat("Ship linear speed X", &shipLinearSpeedX);
+                    ImGui::InputFloat("Ship sin amplitude", &shipSinAmplitude);
+                    ImGui::InputFloat("Ship sin frequency", &shipSinFrequency);
+                    break;
+                case 2: // Circle
+                    ImGui::InputFloat("Ship linear speed X", &shipLinearSpeedX);
+                    ImGui::InputFloat("Ship linear speed Y", &shipLinearSpeedY);
+                    ImGui::InputFloat("Ship circle radius", &shipCircleRadius);
+                    ImGui::InputFloat("Ship angular speed", &shipAngularSpeed);
+                    break;
+                default:
+                    ImGui::Text("Unsupported yet");
+                    break;
+            }
+            ImGui::Separator();
             if (ImGui::InputInt("Ship acceleration period", &shipAccelerationPeriod)) {
                 if (shipAccelerationPeriod < 1) {
                     shipAccelerationPeriod = 1;
                 }
             }
             ImGui::Checkbox("Follow ship", &followShip);
+            if (ImGui::Checkbox("Ship's trail", &shipsTrail)) {
+                trail.clear();
+            }
+            if (shipsTrail) {
+
+                if (ImGui::InputInt("Ship's trail size", &shipsTrailSize)) {
+                    if (shipsTrailSize > 0) {
+                        trail.resize(shipsTrailSize);
+                    }
+                }
+            }
         }
-        if (ImGui::CollapsingHeader("Grid settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Grid", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("Display grid", &displayGrid);
             ImGui::Checkbox("Display markings", &displayMarkings);
             ImGui::InputInt("Grid step", &gridStep);
             ImGui::ColorEdit3("Grid color", (float*) &gridColor);
+            ImGui::ColorEdit3("Markings color", (float*) &markingsColor);
         }
-        if (ImGui::CollapsingHeader("Background settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("Display border", &displayBorder);
             ImGui::ColorEdit3("Border color", (float*) &borderColor);
             ImGui::ColorEdit3("Background color", (float*) &backgroundColor);
         }
-        if (ImGui::CollapsingHeader("Misc settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Misc", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("Enable Demo Window", &enableDemoWindow);
             ImGui::Checkbox("Enable Debug Window", &enableDebugWindow);
         }
@@ -97,10 +183,9 @@ int main(int, char*[]) {
         }
 
         ImGui::InvisibleButton("canvas", canvas_sz, ImGuiButtonFlags_MouseButtonLeft);
-        ImGuiIO&     io        = ImGui::GetIO();
-        const bool   isActive  = ImGui::IsItemActive();
-        bool         isHovered = ImGui::IsItemHovered();
-        const ImVec2 origin(canvas_p0.x + scrollingOffset.x, canvas_p0.y + scrollingOffset.y);
+        ImGuiIO&   io        = ImGui::GetIO();
+        const bool isActive  = ImGui::IsItemActive();
+        bool       isHovered = ImGui::IsItemHovered();
 
         if (isHovered) {
             if (io.MouseWheel != 0.0f) {
@@ -122,6 +207,8 @@ int main(int, char*[]) {
 
         draw_list->PushClipRect(canvas_p0, canvas_p1, true);
 
+        const ImVec2 origin(canvas_p0.x + scrollingOffset.x, canvas_p0.y + scrollingOffset.y);
+
         if (displayGrid) {
             float zoomedGridStep = gridStep * zoomScale;
 
@@ -135,10 +222,8 @@ int main(int, char*[]) {
 
                 if (displayMarkings) {
                     ImGui::SetCursorPos(ImVec2(x0 - 10, y0 + 5));
-                    // TODO: Fix flickering of markings
-                    // going left or right seems to change the behavior ((+1 or 2) or (-1 or 2))
                     float fakeX = (x0 - origin.x) / zoomScale;
-                    ImGui::Text("%.0f", fakeX);
+                    ImGui::TextColored(markingsColor, "%.0f", fakeX);
                 }
             }
 
@@ -153,7 +238,7 @@ int main(int, char*[]) {
                 if (displayMarkings) {
                     ImGui::SetCursorPos(ImVec2(x0 + 5, y0));
                     float fakeY = (y0 - origin.y) / zoomScale;
-                    ImGui::Text("%.0f", fakeY);
+                    ImGui::TextColored(markingsColor, "%.0f", fakeY);
                 }
             }
         }
@@ -183,9 +268,13 @@ int main(int, char*[]) {
             ImGui::Text("Mouse Pos X: %.0f", io.MousePos.x);
             ImGui::SameLine();
             ImGui::Text("Mouse Pos Y: %.0f", io.MousePos.y);
+            ImGui::Text("Mouse Delta X: %.0f", io.MouseDelta.x);
+            ImGui::SameLine();
+            ImGui::Text("Mouse Delta Y: %.0f", io.MouseDelta.y);
             ImGui::Text("Actual Ship X: %.0f", shipCoordinates.x + origin.x);
             ImGui::SameLine();
             ImGui::Text("Actual Ship Y: %.0f", shipCoordinates.y + origin.y);
+            ImGui::Text("Time: %.3f", ImGui::GetTime());
             ImGui::End();
         }
 
@@ -193,9 +282,25 @@ int main(int, char*[]) {
             ImGui::ShowDemoWindow();
         }
 
-        draw_list->AddCircleFilled(
-            ImVec2(shipCoordinates.x + origin.x, shipCoordinates.y + origin.y), 10 * zoomScale, ImColor(shipColor)
-        );
+        ImVec2 shipToDraw = ImVec2(shipCoordinates.x + origin.x, shipCoordinates.y + origin.y);
+
+
+        if (shipsTrail) {
+            if (trail.size() >= shipsTrailSize) {
+                trail.pop_back();
+            }
+            if (trail.front().x != shipToDraw.x || trail.front().y != shipToDraw.y) {
+                trail.push_front(shipToDraw);
+            }
+
+            float fadeFactor = 0.0f;
+            for (const auto& trailItem: trail) {
+                shipColor.w = (trail.size() - fadeFactor++) / trail.size(); // shipColor.w -> alpha
+                draw_list->AddCircleFilled(trailItem, 10 * zoomScale, ImColor(shipColor));
+            }
+        } else {
+            draw_list->AddCircleFilled(shipToDraw, 10 * zoomScale, ImColor(shipColor));
+        }
 
         draw_list->PopClipRect();
     };
