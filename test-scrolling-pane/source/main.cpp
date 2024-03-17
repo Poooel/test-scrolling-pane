@@ -137,7 +137,6 @@ int main(int, char*[]) {
                 trail.clear();
             }
             if (shipsTrail) {
-
                 if (ImGui::InputInt("Ship's trail size", &shipsTrailSize)) {
                     if (shipsTrailSize > 0) {
                         trail.resize(shipsTrailSize);
@@ -283,7 +282,6 @@ int main(int, char*[]) {
         }
 
         ImVec2 shipToDraw = ImVec2(shipCoordinates.x + origin.x, shipCoordinates.y + origin.y);
-
 
         if (shipsTrail) {
             if (trail.size() >= shipsTrailSize) {

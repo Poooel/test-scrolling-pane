@@ -22,4 +22,4 @@ hello_imgui_add_app(test_scrolling_pane test-scrolling-pane/source/main.cpp)
 # =============
 if (EMSCRIPTEN)
     target_link_options(test_scrolling_pane PRIVATE -sPTHREAD_POOL_SIZE=5)
-endif()
+endif ()
