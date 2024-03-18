@@ -6,7 +6,6 @@
 
 int main(int, char*[]) {
     // TODO: add speed vector north + east
-    // TODO: add planes + animate planes
     // TODO: convert from x/y to lat/long
     // TODO: rework drawing + scrolling + origin (?)
     // TODO: have own timers to avoid jumps
@@ -17,26 +16,42 @@ int main(int, char*[]) {
     // TODO: seg fault on stop
     // TODO: add offset to each plane so they don't overlap
     // TODO: add more animation for planes
+    // TODO: add random animation for planes (random trajectory rather than jumping around)
+    // TODO: after attack animation, remove planes when on target
+    // TODO: try to implement evasive maneuver when attacking for planes
+    // TODO: break up the code
+    // TODO: when placing planes for attack, place them on a circle around the ship (radius of circle from config)
+    // TODO: trail for planes
 
     ImVec2 shipCoordinates(0.0f, 0.0f);
     ImVec2 scrollingOffset(0.0f, 0.0f);
 
     ImVec4            shipColor(1.0f, 1.0f, 1.0f, 1.0f);
-    float             shipLinearSpeedX       = 0.0f;
-    float             shipLinearSpeedY       = 0.0f;
-    int               shipAccelerationPeriod = 10;
-    bool              followShip             = true;
-    const char*       animations[]           = { "Linear", "Sin", "Circle" };
-    int               animationSelectedIndex = 0;
-    float             shipSinAmplitude       = 100.0f;
-    float             shipSinFrequency       = 0.1f;
-    float             shipCircleRadius       = 100.f;
-    float             shipAngularSpeed       = 1.0f;
-    bool              shipsTrail             = false;
-    int               shipsTrailSize         = 100;
+    float             shipLinearSpeedX           = 0.0f;
+    float             shipLinearSpeedY           = 0.0f;
+    int               shipAccelerationPeriod     = 10;
+    bool              followShip                 = true;
+    const char*       shipAnimations[]           = { "Linear", "Sin", "Circle" };
+    int               shipAnimationSelectedIndex = 0;
+    float             shipSinAmplitude           = 100.0f;
+    float             shipSinFrequency           = 0.1f;
+    float             shipCircleRadius           = 100.f;
+    float             shipAngularSpeed           = 1.0f;
+    bool              shipsTrail                 = false;
+    int               shipsTrailSize             = 100;
     std::list<ImVec2> trail(shipsTrailSize);
 
     std::vector<ImVec2> planes;
+    float               mainOrbitRadius            = 200.0f;
+    float               secondaryOrbitRadius       = 100.0f;
+    float               mainOrbitAngularSpeed      = 2.0f;
+    float               secondaryOrbitAngularSpeed = 8.0f;
+    const char*         planesAnimations[]         = {
+        "Orbit", "Multiple orbits & secondaries", "Single orbit & secondaries", "Random", "Attack"
+    };
+    int   planesAnimationSelectedIndex = 0;
+    float attackSpeed                  = 3.0f;
+    bool  evasiveManeuver              = false;
 
     bool   displayGrid     = true;
     bool   displayMarkings = true;
@@ -60,7 +75,7 @@ int main(int, char*[]) {
 
     std::atomic_bool stopPlanesAnimationThreadExecution(false);
     std::atomic_bool isPlanesAnimationThreadRunning(false);
-    bool animatePlanes = false;
+    bool             animatePlanes = false;
     std::thread      planesAnimationThread;
 
     auto guiFunction = [&]() {
@@ -70,7 +85,7 @@ int main(int, char*[]) {
 
                 while (!stopShipAnimationThreadExecution) {
                     if (animateShip) {
-                        switch (animationSelectedIndex) {
+                        switch (shipAnimationSelectedIndex) {
                             case 0: // Linear
                                 shipCoordinates.x += shipLinearSpeedX;
                                 shipCoordinates.y += shipLinearSpeedY;
@@ -100,21 +115,63 @@ int main(int, char*[]) {
 
                 while (!stopPlanesAnimationThreadExecution) {
                     if (animatePlanes) {
-                        float centerOfOrbitX = shipCoordinates.x;
-                        float centerOfOrbitY = shipCoordinates.y;
-                        float radius = 200.0f;
-                        float ownRadius = 100.0f;
-                        float angularSpeed = 2.0f;
-                        float ownAngularSpeed = 8.0f;
+                        int planeIndex = 0;
+                        for (auto& plane: planes) {
+                            switch (planesAnimationSelectedIndex) {
+                                case 0: // Orbit
+                                    {
+                                        float angle = ImGui::GetTime() * mainOrbitAngularSpeed +
+                                                      (planeIndex++ * (2.0f * M_PI / planes.size()));
+                                        plane.x = shipCoordinates.x + mainOrbitRadius * std::cos(angle);
+                                        plane.y = shipCoordinates.y + mainOrbitRadius * std::sin(angle);
+                                    }
+                                    break;
+                                case 1: // Multiple orbits & secondaries
+                                    {
+                                        float mainAngle = ImGui::GetTime() * mainOrbitAngularSpeed +
+                                                          (planeIndex++ * (2.0f * M_PI / planes.size()));
+                                        float mainOrbitCenterX =
+                                            shipCoordinates.x + mainOrbitRadius * std::cos(mainAngle);
+                                        float mainOrbitCenterY =
+                                            shipCoordinates.y + mainOrbitRadius * std::sin(mainAngle);
 
-                        for (auto& plane : planes) {
-                            float angle = ImGui::GetTime() * angularSpeed;
-                            float orbitX = centerOfOrbitX + radius * std::cos(angle);
-                            float orbitY = centerOfOrbitY + radius * std::sin(angle);
+                                        float secondaryAngle = ImGui::GetTime() * secondaryOrbitAngularSpeed;
+                                        plane.x = mainOrbitCenterX + secondaryOrbitRadius * std::cos(secondaryAngle);
+                                        plane.y = mainOrbitCenterY + secondaryOrbitRadius * std::sin(secondaryAngle);
+                                    }
+                                    break;
+                                case 2: // Single orbit & secondaries
+                                    {
+                                        float mainAngle = ImGui::GetTime() * mainOrbitAngularSpeed;
+                                        float mainOrbitCenterX =
+                                            shipCoordinates.x + mainOrbitRadius * std::cos(mainAngle);
+                                        float mainOrbitCenterY =
+                                            shipCoordinates.y + mainOrbitRadius * std::sin(mainAngle);
 
-                            float ownAngle = ImGui::GetTime() * ownAngularSpeed;
-                            plane.x = orbitX + ownRadius * std::cos(ownAngle);
-                            plane.y = orbitY + ownRadius * std::sin(ownAngle);
+                                        float secondaryAngle = ImGui::GetTime() * secondaryOrbitAngularSpeed +
+                                                               (planeIndex++ * (2.0f * M_PI / planes.size()));
+                                        plane.x = mainOrbitCenterX + secondaryOrbitRadius * std::cos(secondaryAngle);
+                                        plane.y = mainOrbitCenterY + secondaryOrbitRadius * std::sin(secondaryAngle);
+                                    }
+                                    break;
+                                case 3: // Random
+                                    break;
+                                case 4: // Attack
+                                    {
+                                        float directionX = shipCoordinates.x - plane.x;
+                                        float directionY = shipCoordinates.y - plane.y;
+
+                                        double normalizedVector =
+                                            std::sqrt(std::pow(directionX, 2) + std::pow(directionY, 2));
+
+                                        float normalizedDirectionX = directionX * (1 / normalizedVector);
+                                        float normalizedDirectionY = directionY * (1 / normalizedVector);
+
+                                        plane.x += normalizedDirectionX * attackSpeed;
+                                        plane.y += normalizedDirectionY * attackSpeed;
+                                    }
+                                    break;
+                            }
                         }
                     }
 
@@ -131,13 +188,13 @@ int main(int, char*[]) {
                 shipCoordinates.y = 0.0f;
             }
             ImGui::Checkbox("Animate ship", &animateShip);
-            if (ImGui::BeginListBox("Animations")) {
-                for (int i = 0; i < IM_ARRAYSIZE(animations); i++) {
-                    const bool isSelected = animationSelectedIndex == i;
+            if (ImGui::BeginListBox("Ship animations")) {
+                for (int i = 0; i < IM_ARRAYSIZE(shipAnimations); i++) {
+                    const bool isSelected = shipAnimationSelectedIndex == i;
 
-                    if (ImGui::Selectable(animations[i], isSelected)) {
-                        animationSelectedIndex = i;
-                        animateShip            = false;
+                    if (ImGui::Selectable(shipAnimations[i], isSelected)) {
+                        shipAnimationSelectedIndex = i;
+                        animateShip                = false;
                     }
 
                     if (isSelected) {
@@ -147,7 +204,7 @@ int main(int, char*[]) {
                 ImGui::EndListBox();
             }
             ImGui::SeparatorText("Animation");
-            switch (animationSelectedIndex) {
+            switch (shipAnimationSelectedIndex) {
                 case 0: // Linear
                     ImGui::InputFloat("Ship linear speed X", &shipLinearSpeedX);
                     ImGui::InputFloat("Ship linear speed Y", &shipLinearSpeedY);
@@ -187,9 +244,7 @@ int main(int, char*[]) {
         }
         if (ImGui::CollapsingHeader("Planes", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ImGui::Button("Add")) {
-                if (planes.empty()) {
-                    planes.emplace_back(0.0f, 0.0f);
-                }
+                planes.emplace_back(0.0f, 0.0f);
             }
             ImGui::SameLine();
             if (ImGui::Button("Remove")) {
@@ -199,6 +254,45 @@ int main(int, char*[]) {
             }
             ImGui::Checkbox("Animate planes", &animatePlanes);
             ImGui::Text("Number of planes: %zu", planes.size());
+            if (ImGui::BeginListBox("Planes animations")) {
+                for (int i = 0; i < IM_ARRAYSIZE(planesAnimations); i++) {
+                    const bool isSelected = planesAnimationSelectedIndex == i;
+
+                    if (ImGui::Selectable(planesAnimations[i], isSelected)) {
+                        planesAnimationSelectedIndex = i;
+                        animatePlanes                = false;
+                    }
+
+                    if (isSelected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndListBox();
+            }
+            ImGui::SeparatorText("Animation");
+            switch (planesAnimationSelectedIndex) {
+                case 0: // Orbit
+                    ImGui::InputFloat("Main orbit radius", &mainOrbitRadius);
+                    ImGui::InputFloat("Main orbit angular speed", &mainOrbitAngularSpeed);
+                    break;
+                case 1: // Multiple orbits & secondaries
+                case 2: // Single orbit & secondaries
+                    ImGui::InputFloat("Main orbit radius", &mainOrbitRadius);
+                    ImGui::InputFloat("Main orbit angular speed", &mainOrbitAngularSpeed);
+                    ImGui::InputFloat("Secondary orbit radius", &secondaryOrbitRadius);
+                    ImGui::InputFloat("Secondary orbit angular speed", &secondaryOrbitAngularSpeed);
+                    break;
+                case 3: // Random
+                    ImGui::Text("Unsupported yet");
+                    break;
+                case 4: // Attack
+                    ImGui::InputFloat("Attack speed", &attackSpeed);
+                    ImGui::Checkbox("Evasive maneuver", &evasiveManeuver);
+                    break;
+                default:
+                    ImGui::Text("Unsupported yet");
+                    break;
+            }
         }
         if (ImGui::CollapsingHeader("Grid", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("Display grid", &displayGrid);
@@ -356,7 +450,7 @@ int main(int, char*[]) {
             draw_list->AddCircleFilled(shipToDraw, 10 * zoomScale, ImColor(shipColor));
         }
 
-        for (const auto& plane : planes) {
+        for (const auto& plane: planes) {
             ImVec2 planeToDraw(plane.x + origin.x, plane.y + origin.y);
             draw_list->AddCircleFilled(planeToDraw, 5 * zoomScale, ImColor(shipColor));
         }
@@ -372,7 +466,7 @@ int main(int, char*[]) {
 
     HelloImGui::Run(guiFunction, windowTitle, autoSizeWindow, restorePreviousGeometry, screenSize, fpsIdle);
 
-    stopShipAnimationThreadExecution = true;
+    stopShipAnimationThreadExecution   = true;
     stopPlanesAnimationThreadExecution = true;
 
     shipAnimationThread.join();
