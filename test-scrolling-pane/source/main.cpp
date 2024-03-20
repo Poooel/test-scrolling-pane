@@ -1,7 +1,9 @@
 #include "hello_imgui/hello_imgui.h"
+#include "perlin.h"
 
 #include <cmath>
 #include <list>
+#include <random>
 #include <thread>
 
 int main(int, char*[]) {
@@ -9,19 +11,19 @@ int main(int, char*[]) {
     // TODO: convert from x/y to lat/long
     // TODO: rework drawing + scrolling + origin (?)
     // TODO: have own timers to avoid jumps
-    // TODO: ship's trail when following ship doesn't work
-    // TODO: do not store trail when scrolling
-    // TODO: disabling trail when following ship make ship disappears
-    // TODO: adding more than one track seg fault
-    // TODO: seg fault on stop
-    // TODO: add offset to each plane so they don't overlap
-    // TODO: add more animation for planes
-    // TODO: add random animation for planes (random trajectory rather than jumping around)
-    // TODO: after attack animation, remove planes when on target
-    // TODO: try to implement evasive maneuver when attacking for planes
     // TODO: break up the code
-    // TODO: when placing planes for attack, place them on a circle around the ship (radius of circle from config)
     // TODO: trail for planes
+    // TODO: rework window layout
+
+    const std::string            windowTitle             = "Test Scrolling Pane";
+    const HelloImGui::ScreenSize screenSize              = { 1280, 720 };
+    const bool                   autoSizeWindow          = false;
+    const bool                   restorePreviousGeometry = false;
+    const float                  fpsIdle                 = 0.0f;
+
+    std::random_device               randomDevice;
+    std::mt19937                     generator(randomDevice());
+    std::uniform_real_distribution<> distribution(0, 2 * M_PI);
 
     ImVec2 shipCoordinates(0.0f, 0.0f);
     ImVec2 scrollingOffset(0.0f, 0.0f);
@@ -39,19 +41,20 @@ int main(int, char*[]) {
     float             shipAngularSpeed           = 1.0f;
     bool              shipsTrail                 = false;
     int               shipsTrailSize             = 100;
-    std::list<ImVec2> trail(shipsTrailSize);
+    std::list<ImVec2> trail;
 
-    std::vector<ImVec2> planes;
-    float               mainOrbitRadius            = 200.0f;
-    float               secondaryOrbitRadius       = 100.0f;
-    float               mainOrbitAngularSpeed      = 2.0f;
-    float               secondaryOrbitAngularSpeed = 8.0f;
-    const char*         planesAnimations[]         = {
+    std::list<ImVec2> planes;
+    float             mainOrbitRadius            = 200.0f;
+    float             secondaryOrbitRadius       = 100.0f;
+    float             mainOrbitAngularSpeed      = 2.0f;
+    float             secondaryOrbitAngularSpeed = 8.0f;
+    const char*       planesAnimations[]         = {
         "Orbit", "Multiple orbits & secondaries", "Single orbit & secondaries", "Random", "Attack"
     };
     int   planesAnimationSelectedIndex = 0;
     float attackSpeed                  = 3.0f;
-    bool  evasiveManeuver              = false;
+    float spawnRadius                  = 150.0f;
+    float planeSpeed                   = 1.0f;
 
     bool   displayGrid     = true;
     bool   displayMarkings = true;
@@ -116,28 +119,29 @@ int main(int, char*[]) {
                 while (!stopPlanesAnimationThreadExecution) {
                     if (animatePlanes) {
                         int planeIndex = 0;
-                        for (auto& plane: planes) {
+
+                        for (auto plane = planes.begin(); plane != planes.end();) {
                             switch (planesAnimationSelectedIndex) {
                                 case 0: // Orbit
                                     {
                                         float angle = ImGui::GetTime() * mainOrbitAngularSpeed +
-                                                      (planeIndex++ * (2.0f * M_PI / planes.size()));
-                                        plane.x = shipCoordinates.x + mainOrbitRadius * std::cos(angle);
-                                        plane.y = shipCoordinates.y + mainOrbitRadius * std::sin(angle);
+                                                      (planeIndex * (2.0f * M_PI / planes.size()));
+                                        plane->x = shipCoordinates.x + mainOrbitRadius * std::cos(angle);
+                                        plane->y = shipCoordinates.y + mainOrbitRadius * std::sin(angle);
                                     }
                                     break;
                                 case 1: // Multiple orbits & secondaries
                                     {
                                         float mainAngle = ImGui::GetTime() * mainOrbitAngularSpeed +
-                                                          (planeIndex++ * (2.0f * M_PI / planes.size()));
+                                                          (planeIndex * (2.0f * M_PI / planes.size()));
                                         float mainOrbitCenterX =
                                             shipCoordinates.x + mainOrbitRadius * std::cos(mainAngle);
                                         float mainOrbitCenterY =
                                             shipCoordinates.y + mainOrbitRadius * std::sin(mainAngle);
 
                                         float secondaryAngle = ImGui::GetTime() * secondaryOrbitAngularSpeed;
-                                        plane.x = mainOrbitCenterX + secondaryOrbitRadius * std::cos(secondaryAngle);
-                                        plane.y = mainOrbitCenterY + secondaryOrbitRadius * std::sin(secondaryAngle);
+                                        plane->x = mainOrbitCenterX + secondaryOrbitRadius * std::cos(secondaryAngle);
+                                        plane->y = mainOrbitCenterY + secondaryOrbitRadius * std::sin(secondaryAngle);
                                     }
                                     break;
                                 case 2: // Single orbit & secondaries
@@ -149,17 +153,23 @@ int main(int, char*[]) {
                                             shipCoordinates.y + mainOrbitRadius * std::sin(mainAngle);
 
                                         float secondaryAngle = ImGui::GetTime() * secondaryOrbitAngularSpeed +
-                                                               (planeIndex++ * (2.0f * M_PI / planes.size()));
-                                        plane.x = mainOrbitCenterX + secondaryOrbitRadius * std::cos(secondaryAngle);
-                                        plane.y = mainOrbitCenterY + secondaryOrbitRadius * std::sin(secondaryAngle);
+                                                               (planeIndex * (2.0f * M_PI / planes.size()));
+                                        plane->x = mainOrbitCenterX + secondaryOrbitRadius * std::cos(secondaryAngle);
+                                        plane->y = mainOrbitCenterY + secondaryOrbitRadius * std::sin(secondaryAngle);
                                     }
                                     break;
                                 case 3: // Random
+                                    {
+                                        double noiseValue =
+                                            pnoise(plane->x / screenSize[0], plane->y / screenSize[1], planeIndex);
+                                        plane->x += std::cos(noiseValue * 2.0 * M_PI) * planeSpeed;
+                                        plane->y += std::sin(noiseValue * 2.0 * M_PI) * planeSpeed;
+                                    }
                                     break;
                                 case 4: // Attack
                                     {
-                                        float directionX = shipCoordinates.x - plane.x;
-                                        float directionY = shipCoordinates.y - plane.y;
+                                        float directionX = shipCoordinates.x - plane->x;
+                                        float directionY = shipCoordinates.y - plane->y;
 
                                         double normalizedVector =
                                             std::sqrt(std::pow(directionX, 2) + std::pow(directionY, 2));
@@ -167,11 +177,20 @@ int main(int, char*[]) {
                                         float normalizedDirectionX = directionX * (1 / normalizedVector);
                                         float normalizedDirectionY = directionY * (1 / normalizedVector);
 
-                                        plane.x += normalizedDirectionX * attackSpeed;
-                                        plane.y += normalizedDirectionY * attackSpeed;
+                                        plane->x += normalizedDirectionX * attackSpeed;
+                                        plane->y += normalizedDirectionY * attackSpeed;
                                     }
                                     break;
                             }
+
+                            if (std::round(plane->x) == std::round(shipCoordinates.x) &&
+                                std::round(plane->y) == std::round(shipCoordinates.y)) {
+                                plane = planes.erase(plane);
+                            } else {
+                                plane++;
+                            }
+
+                            planeIndex++;
                         }
                     }
 
@@ -232,7 +251,9 @@ int main(int, char*[]) {
             }
             ImGui::Checkbox("Follow ship", &followShip);
             if (ImGui::Checkbox("Ship's trail", &shipsTrail)) {
-                trail.clear();
+                if (!shipsTrail) {
+                    trail.clear();
+                }
             }
             if (shipsTrail) {
                 if (ImGui::InputInt("Ship's trail size", &shipsTrailSize)) {
@@ -244,7 +265,14 @@ int main(int, char*[]) {
         }
         if (ImGui::CollapsingHeader("Planes", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ImGui::Button("Add")) {
-                planes.emplace_back(0.0f, 0.0f);
+                if (planesAnimationSelectedIndex == 4) { // Attack
+                    double theta = distribution(generator);
+                    double x     = spawnRadius * std::cos(theta);
+                    double y     = spawnRadius * std::sin(theta);
+                    planes.emplace_back(x, y);
+                } else {
+                    planes.emplace_back(0.0f, 0.0f);
+                }
             }
             ImGui::SameLine();
             if (ImGui::Button("Remove")) {
@@ -283,11 +311,11 @@ int main(int, char*[]) {
                     ImGui::InputFloat("Secondary orbit angular speed", &secondaryOrbitAngularSpeed);
                     break;
                 case 3: // Random
-                    ImGui::Text("Unsupported yet");
+                    ImGui::InputFloat("Plane speed", &planeSpeed);
                     break;
                 case 4: // Attack
+                    ImGui::InputFloat("Spawn radius", &spawnRadius);
                     ImGui::InputFloat("Attack speed", &attackSpeed);
-                    ImGui::Checkbox("Evasive maneuver", &evasiveManeuver);
                     break;
                 default:
                     ImGui::Text("Unsupported yet");
@@ -424,6 +452,7 @@ int main(int, char*[]) {
             ImGui::SameLine();
             ImGui::Text("Actual Ship Y: %.0f", shipCoordinates.y + origin.y);
             ImGui::Text("Time: %.3f", ImGui::GetTime());
+            ImGui::Text("Trail size: %zu", trail.size());
             ImGui::End();
         }
 
@@ -431,38 +460,39 @@ int main(int, char*[]) {
             ImGui::ShowDemoWindow();
         }
 
-        ImVec2 shipToDraw = ImVec2(shipCoordinates.x + origin.x, shipCoordinates.y + origin.y);
-
         if (shipsTrail) {
             if (trail.size() >= shipsTrailSize) {
                 trail.pop_back();
             }
-            if (trail.front().x != shipToDraw.x || trail.front().y != shipToDraw.y) {
-                trail.push_front(shipToDraw);
+            if (trail.empty() || trail.front().x != shipCoordinates.x || trail.front().y != shipCoordinates.y) {
+                trail.emplace_front(shipCoordinates.x, shipCoordinates.y);
             }
 
             float fadeFactor = 0.0f;
             for (const auto& trailItem: trail) {
-                shipColor.w = (trail.size() - fadeFactor++) / trail.size(); // shipColor.w -> alpha
-                draw_list->AddCircleFilled(trailItem, 10 * zoomScale, ImColor(shipColor));
+                float alpha = (trail.size() - fadeFactor++) / trail.size();
+                draw_list->AddCircleFilled(
+                    ImVec2(trailItem.x + origin.x, trailItem.y + origin.y),
+                    10 * zoomScale,
+                    ImColor(shipColor.x, shipColor.y, shipColor.z, alpha)
+                );
             }
         } else {
-            draw_list->AddCircleFilled(shipToDraw, 10 * zoomScale, ImColor(shipColor));
+            draw_list->AddCircleFilled(
+                ImVec2(shipCoordinates.x + origin.x, shipCoordinates.y + origin.y), 10 * zoomScale, ImColor(shipColor)
+            );
         }
 
-        for (const auto& plane: planes) {
-            ImVec2 planeToDraw(plane.x + origin.x, plane.y + origin.y);
-            draw_list->AddCircleFilled(planeToDraw, 5 * zoomScale, ImColor(shipColor));
+        if (animatePlanes) {
+            for (const auto& plane: planes) {
+                draw_list->AddCircleFilled(
+                    ImVec2(plane.x + origin.x, plane.y + origin.y), 5 * zoomScale, ImColor(shipColor)
+                );
+            }
         }
 
         draw_list->PopClipRect();
     };
-
-    const std::string            windowTitle             = "Test Scrolling Pane";
-    const HelloImGui::ScreenSize screenSize              = { 1280, 720 };
-    const bool                   autoSizeWindow          = false;
-    const bool                   restorePreviousGeometry = false;
-    const float                  fpsIdle                 = 0.0f;
 
     HelloImGui::Run(guiFunction, windowTitle, autoSizeWindow, restorePreviousGeometry, screenSize, fpsIdle);
 

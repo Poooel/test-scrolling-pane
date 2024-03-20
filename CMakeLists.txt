@@ -14,6 +14,10 @@ endif ()
 # =================
 add_subdirectory(externals/hello_imgui)
 
+# Includes
+# ========
+include_directories(test-scrolling-pane/include)
+
 # Build your app
 # ==============
 hello_imgui_add_app(test_scrolling_pane test-scrolling-pane/source/main.cpp)
