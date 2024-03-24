@@ -20,7 +20,8 @@ include_directories(test-scrolling-pane/include)
 
 # Build your app
 # ==============
-hello_imgui_add_app(test_scrolling_pane test-scrolling-pane/source/main.cpp)
+FILE(GLOB_RECURSE SOURCES "test-scrolling-pane/*.cpp")
+hello_imgui_add_app(test_scrolling_pane ${SOURCES})
 
 # Extra options
 # =============
