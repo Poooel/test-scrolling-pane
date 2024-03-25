@@ -2,15 +2,16 @@
 #define TEST_SCROLLING_PANE_CANVASWINDOW_H
 
 #include "state/ApplicationState.h"
+#include "state/CanvasState.h"
 
 class CanvasWindow {
     public:
         static void gui(ApplicationState& applicationState);
 
     private:
-        static void drawGrid(ApplicationState& applicationState);
-        static void drawShip(ApplicationState& applicationState);
-        static void drawPlanes(ApplicationState& applicationState);
+        static void drawGrid(CanvasState& canvasState);
+        static void drawShip(CanvasState& canvasState);
+        static void drawPlanes(CanvasState& canvasState);
 };
 
 #endif // TEST_SCROLLING_PANE_CANVASWINDOW_H

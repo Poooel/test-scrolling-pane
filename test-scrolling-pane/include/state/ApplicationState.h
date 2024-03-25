@@ -11,9 +11,6 @@ struct ApplicationState {
         // Window
         const std::string            windowTitle { "Test Scrolling Pane" };
         const HelloImGui::ScreenSize screenSize { 1280, 720 };
-        const bool                   autoSizeWindow { false };
-        const bool                   restorePreviousGeometry { false };
-        const float                  fpsIdle { 0.0f };
 
         // Random
         std::random_device               randomDevice;
@@ -81,28 +78,19 @@ struct ApplicationState {
         int    gridStep { 100 };
         bool   displayGrid { true };
         bool   displayMarkings { true };
-        bool   displayBorder { true };
         ImVec4 gridColor { 0.5f, 0.5f, 0.5f, 1.0f };
         ImVec4 markingsColor { 1.0f, 1.0f, 1.0f, 1.0f };
-        ImVec4 borderColor { 1.0f, 1.0f, 1.0f, 1.0f };
         ImVec4 backgroundColor { 0.2f, 0.2f, 0.2f, 1.0f };
 
         // Animation threads
-//        std::atomic_bool              stopShipAnimationThreadExecution { false };
-//        std::atomic_bool              stopPlanesAnimationThreadExecution { false };
-//        std::atomic_bool              isShipAnimationThreadRunning { false };
-//        std::atomic_bool              isPlanesAnimationThreadRunning { false };
-//        std::unique_ptr<std::jthread> shipAnimationThread;
-//        std::unique_ptr<std::jthread> planesAnimationThread;
+        std::jthread shipAnimationThread;
+        std::jthread planesAnimationThread;
 
         // Misc
         ImVec2 scrollingOffset { 0.0f, 0.0f };
         float  zoomScale { 1.0f };
         bool   enableDemoWindow { false };
         bool   enableDebugWindow { false };
-
-        // Font
-        ImFont* font = nullptr;
 };
 
 #endif // TEST_SCROLLING_PANE_APPLICATIONSTATE_H

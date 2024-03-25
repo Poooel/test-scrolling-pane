@@ -5,7 +5,7 @@
 
 class ShipAnimationThread {
     public:
-        static void run(ApplicationState& applicationState);
+        static void run(const std::stop_token& stoken, ApplicationState& applicationState);
 };
 
 #endif // TEST_SCROLLING_PANE_SHIPANIMATIONTHREAD_H

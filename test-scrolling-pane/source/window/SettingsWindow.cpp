@@ -3,7 +3,6 @@
 
 void SettingsWindow::gui(ApplicationState& applicationState) {
     ImGui::Begin("Settings");
-    ImGui::PushFont(applicationState.font);
 
     if (ImGui::CollapsingHeader("Ship", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::ColorEdit3("Ship color", (float*) &applicationState.shipColor);
@@ -139,8 +138,6 @@ void SettingsWindow::gui(ApplicationState& applicationState) {
         ImGui::ColorEdit3("Markings color", (float*) &applicationState.markingsColor);
     }
     if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen)) {
-        // ImGui::Checkbox("Display border", &applicationState.displayBorder);
-        // ImGui::ColorEdit3("Border color", (float*) &applicationState.borderColor);
         ImGui::ColorEdit3("Background color", (float*) &applicationState.backgroundColor);
     }
     if (ImGui::CollapsingHeader("Misc", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -154,6 +151,5 @@ void SettingsWindow::gui(ApplicationState& applicationState) {
         }
     }
 
-    ImGui::PopFont();
     ImGui::End();
 }

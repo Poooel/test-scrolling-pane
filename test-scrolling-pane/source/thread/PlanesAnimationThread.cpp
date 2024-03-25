@@ -2,10 +2,10 @@
 
 #include "misc/perlin.h"
 
-void PlanesAnimationThread::run(ApplicationState& applicationState) {
-    applicationState.isPlanesAnimationThreadRunning = true;
+void PlanesAnimationThread::run(const std::stop_token& stoken, ApplicationState& applicationState) {
+    while (!stoken.stop_requested()) {
+        double time = ImGui::GetTime();
 
-    while (!applicationState.stopPlanesAnimationThreadExecution) {
         if (applicationState.animatePlanes) {
             int planeIndex = 0;
 
@@ -14,7 +14,7 @@ void PlanesAnimationThread::run(ApplicationState& applicationState) {
                     case 0: // Orbit
                         {
                             auto angle = static_cast<float>(
-                                ImGui::GetTime() * applicationState.planeMainOrbitAngularSpeed +
+                                time * applicationState.planeMainOrbitAngularSpeed +
                                 (planeIndex * (2.0f * M_PI / static_cast<double>(applicationState.planes.size())))
                             );
 
@@ -27,7 +27,7 @@ void PlanesAnimationThread::run(ApplicationState& applicationState) {
                     case 1: // Multiple orbits & secondaries
                         {
                             auto mainAngle = static_cast<float>(
-                                ImGui::GetTime() * applicationState.planeMainOrbitAngularSpeed +
+                                time * applicationState.planeMainOrbitAngularSpeed +
                                 (planeIndex * (2.0f * M_PI / static_cast<double>(applicationState.planes.size())))
                             );
 
@@ -37,7 +37,7 @@ void PlanesAnimationThread::run(ApplicationState& applicationState) {
                                                      applicationState.planeMainOrbitRadius * std::sin(mainAngle);
 
                             auto secondaryAngle =
-                                static_cast<float>(ImGui::GetTime() * applicationState.planeSecondaryOrbitAngularSpeed);
+                                static_cast<float>(time * applicationState.planeSecondaryOrbitAngularSpeed);
 
                             plane->x = mainOrbitCenterX +
                                        applicationState.planeSecondaryOrbitRadius * std::cos(secondaryAngle);
@@ -48,14 +48,14 @@ void PlanesAnimationThread::run(ApplicationState& applicationState) {
                     case 2: // Single orbit & secondaries
                         {
                             auto mainAngle =
-                                static_cast<float>(ImGui::GetTime() * applicationState.planeMainOrbitAngularSpeed);
+                                static_cast<float>(time * applicationState.planeMainOrbitAngularSpeed);
                             float mainOrbitCenterX = applicationState.shipCoordinates.x +
                                                      applicationState.planeMainOrbitRadius * std::cos(mainAngle);
                             float mainOrbitCenterY = applicationState.shipCoordinates.y +
                                                      applicationState.planeMainOrbitRadius * std::sin(mainAngle);
 
                             auto secondaryAngle = static_cast<float>(
-                                ImGui::GetTime() * applicationState.planeSecondaryOrbitAngularSpeed +
+                                time * applicationState.planeSecondaryOrbitAngularSpeed +
                                 (planeIndex * (2.0f * M_PI / static_cast<double>(applicationState.planes.size())))
                             );
                             plane->x = mainOrbitCenterX +
