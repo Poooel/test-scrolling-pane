@@ -2,10 +2,10 @@
 #define TEST_SCROLLING_PANE_PERLIN_H
 
 /*
- Ken Perlins improved noise   -  http://mrl.nyu.edu/~perlin/noise/
- C-port:  http://www.fundza.com/c4serious/noise/perlin/perlin.html
- by Malcolm Kesson;   arduino port by Peter Chiochetti, Sep 2007 :
- -  make permutation constant byte, obsoletes init(), lookup % 256
+ Ken Perlins improved noise - http://mrl.nyu.edu/~perlin/noise/
+ C-port: http://www.fundza.com/c4serious/noise/perlin/perlin.html
+ by Malcolm Kesson; arduino port by Peter Chiochetti, Sep 2007 :
+ - make permutation constant byte, obsoletes init(), lookup % 256
 */
 
 #include <cmath>
@@ -61,24 +61,12 @@ double pnoise(double x, double y, double z) {
         w,
         lerp(
             v,
-            lerp(
-                u,
-                grad(P(AA), x, y, z), /* AND ADD */
-                grad(P(BA), x - 1, y, z)
-            ), /* BLENDED */
-            lerp(
-                u,
-                grad(P(AB), x, y - 1, z), /* RESULTS */
-                grad(P(BB), x - 1, y - 1, z)
-            )
-        ), /* FROM  8 */
+            lerp(u, grad(P(AA), x, y, z), grad(P(BA), x - 1, y, z)),
+            lerp(u, grad(P(AB), x, y - 1, z), grad(P(BB), x - 1, y - 1, z))
+        ),
         lerp(
             v,
-            lerp(
-                u,
-                grad(P(AA + 1), x, y, z - 1), /* CORNERS */
-                grad(P(BA + 1), x - 1, y, z - 1)
-            ), /* OF CUBE */
+            lerp(u, grad(P(AA + 1), x, y, z - 1), grad(P(BA + 1), x - 1, y, z - 1)),
             lerp(u, grad(P(AB + 1), x, y - 1, z - 1), grad(P(BB + 1), x - 1, y - 1, z - 1))
         )
     );
