@@ -10,6 +10,12 @@ void SettingsWindow::gui(ApplicationState& applicationState) {
             applicationState.shipCoordinates.x = 0.0f;
             applicationState.shipCoordinates.y = 0.0f;
         }
+        ImGui::InputFloat("Go to X", &applicationState.goToXCoordinate);
+        ImGui::InputFloat("Go to Y", &applicationState.goToYCoordinate);
+        if (ImGui::Button("Go to coordinates")) {
+            applicationState.shipCoordinates.x = applicationState.goToXCoordinate;
+            applicationState.shipCoordinates.y = applicationState.goToYCoordinate;
+        }
         ImGui::Checkbox("Animate ship", &applicationState.animateShip);
         if (ImGui::BeginListBox("Ship animations")) {
             for (int i = 0; i < IM_ARRAYSIZE(applicationState.shipAnimations); i++) {
@@ -71,8 +77,8 @@ void SettingsWindow::gui(ApplicationState& applicationState) {
         if (ImGui::Button("Add")) {
             if (applicationState.planesAnimationSelectedIndex == 4) { // Attack
                 double theta = applicationState.randomZeroTwoPiDistribution(applicationState.randomGenerator);
-                double x     = applicationState.planeSpawnRadius * std::cos(theta);
-                double y     = applicationState.planeSpawnRadius * std::sin(theta);
+                double x     = applicationState.planeSpawnRadius * std::cos(theta) + applicationState.shipCoordinates.x;
+                double y     = applicationState.planeSpawnRadius * std::sin(theta) + applicationState.shipCoordinates.y;
                 applicationState.planes.emplace_back(x, y);
             } else {
                 applicationState.planes.emplace_back(0.0f, 0.0f);

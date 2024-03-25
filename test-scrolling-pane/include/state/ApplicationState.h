@@ -20,6 +20,8 @@ struct ApplicationState {
         // Ship
         ImVec2 shipCoordinates { 0.0f, 0.0f };
         ImVec4 shipColor { 1.0f, 1.0f, 1.0f, 1.0f };
+        float goToXCoordinate = 0.0f;
+        float goToYCoordinate = 0.0f;
 
         // Ship's animations
         bool        animateShip { false };
