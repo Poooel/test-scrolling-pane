@@ -34,14 +34,14 @@ int main(int, char*[]) {
     runnerParams.iniFilename   = "test_scrolling_pane/settings.ini";
 
     runnerParams.callbacks.EnqueuePostInit([&]() {
-        applicationState.shipAnimationThread   = std::jthread(ShipAnimationThread::run, std::ref(applicationState));
-        applicationState.planesAnimationThread = std::jthread(PlanesAnimationThread::run, std::ref(applicationState));
+        applicationState.shipAnimationThread   = std::thread(ShipAnimationThread::run, std::ref(applicationState));
+        applicationState.planesAnimationThread = std::thread(PlanesAnimationThread::run, std::ref(applicationState));
     });
 
     runnerParams.callbacks.EnqueueBeforeExit([&]() {
-        applicationState.shipAnimationThread.request_stop();
+        applicationState.shipThreadRequestStop.test_and_set();
         applicationState.shipAnimationThread.join();
-        applicationState.planesAnimationThread.request_stop();
+        applicationState.planesThreadRequestStop.test_and_set();
         applicationState.planesAnimationThread.join();
     });
 

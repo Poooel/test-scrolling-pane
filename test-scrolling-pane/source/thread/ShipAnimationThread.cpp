@@ -1,7 +1,7 @@
 #include "thread/ShipAnimationThread.h"
 
-void ShipAnimationThread::run(const std::stop_token& stoken, ApplicationState& applicationState) {
-    while (!stoken.stop_requested()) {
+void ShipAnimationThread::run(ApplicationState& applicationState) {
+    while (!applicationState.shipThreadRequestStop.test()) {
         double time = ImGui::GetTime();
 
         if (applicationState.animateShip) {

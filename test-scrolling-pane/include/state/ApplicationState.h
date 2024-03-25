@@ -83,8 +83,10 @@ struct ApplicationState {
         ImVec4 backgroundColor { 0.2f, 0.2f, 0.2f, 1.0f };
 
         // Animation threads
-        std::jthread shipAnimationThread;
-        std::jthread planesAnimationThread;
+        std::thread      shipAnimationThread;
+        std::thread      planesAnimationThread;
+        std::atomic_flag shipThreadRequestStop { false };
+        std::atomic_flag planesThreadRequestStop { false };
 
         // Misc
         ImVec2 scrollingOffset { 0.0f, 0.0f };

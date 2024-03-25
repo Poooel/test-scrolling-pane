@@ -2,8 +2,8 @@
 
 #include "misc/perlin.h"
 
-void PlanesAnimationThread::run(const std::stop_token& stoken, ApplicationState& applicationState) {
-    while (!stoken.stop_requested()) {
+void PlanesAnimationThread::run(ApplicationState& applicationState) {
+    while (!applicationState.planesThreadRequestStop.test()) {
         double time = ImGui::GetTime();
 
         if (applicationState.animatePlanes) {
